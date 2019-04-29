@@ -138,7 +138,7 @@ class Board
 
 
 
-    friend class playerAI;
+    friend class ComputerPlayer;
 	friend class GameplayScene;
 
 };

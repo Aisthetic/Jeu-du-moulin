@@ -66,6 +66,7 @@ bool GameplayScene::init()
 	turn = false;
 	currentAction = GameActions::placing;
 
+	AI = new ComputerPlayer(board);
 	return true;
 
 	
@@ -99,6 +100,9 @@ void GameplayScene::onTouchCancelled(cocos2d::Touch *touch, cocos2d::Event *even
 void GameplayScene::setGameType(GameTypes type) {
 	std::cout << "Game type set."<< endl;
 	gameType = type;
+}
+void GameplayScene::placingPhaseOver(std::array<int, 24>)
+{
 }
 #pragma endregion
 
@@ -235,8 +239,8 @@ void GameplayScene::handleInGameClick(int x,int y) {
 	//what cells a player cannot select
 	if (currentAction == GameActions::selecting) {
 		//case 1:the player is trying to capture a mill forming cell or the player cant capture at all (no ally mill formed)
-		if (isUntouchable(x, y))
-			return refuseClick("SELECTING_UNTOUCHABLE_CELL");
+		if (hasMill && !isAlly(x, y) && isUntouchable(x, y))
+			return refuseClick("TRYING_TO_CAPTURE_UNTOUCHABLE_ENEMY");
 		//case 2:the player is selecting a free cell
 		if (isFree(x, y))
 			return refuseClick("SELECTING_FREE_CELL");
@@ -298,12 +302,12 @@ void GameplayScene::handleInGameClick(int x,int y) {
 }
 void GameplayScene::placeToken(int x, int y)
 {
-	int token = board->PosToGameSquareNumber(x, y);
+	auto token = board->PosToGameSquareNumber(x, y);
 	board->drawToken(board->squares[board->PosToNumber(x,y)],token, turn);
 	board->vertices[token] = turn ? 2 : 1;
 	if (placingPhase) {
 		placedTokens++;
-		if (placedTokens > 23) {
+		if (placedTokens > 17) {
 			log("PLACING_PHASE_OVER");
 			placingPhase = !placingPhase;
 			currentAction = GameActions::selecting;
@@ -341,6 +345,21 @@ void GameplayScene::checkForMill() {
 	} 
 }
 
+bool GameplayScene::checkForMill(std::array<int,24> vertices,bool player) {
+	//we're gonna use the data from board about possible mills
+	//the data is a 16 sized array of 3 sized arrays of ints , each int represents a token
+	//we're going to check if each of these 3 tokens are allies (between then and the current player)
+	auto tokenSideOnVertice = player ? 2 : 1;
+	for (int i = 0; i < 16; i++) {
+		//checking if there's an unconsumed mill on the board
+		if (!millIsConsumed(board->possibleMillPositions[i]) &&	vertices[board->possibleMillPositions[i][0]] == tokenSideOnVertice && vertices[board->possibleMillPositions[i][1]] == tokenSideOnVertice && board->vertices[board->possibleMillPositions[i][2]] == tokenSideOnVertice) {
+			log("CUSTOM_MILL_DETECTED");
+			return true;
+		}
+	}
+	return false;
+}
+
 void GameplayScene::checkIfMillIsBroken()
 {
 }
@@ -348,7 +367,32 @@ void GameplayScene::checkIfMillIsBroken()
 
 void GameplayScene::askMiniMaxToPlay()
 {
+	if (placingPhase) {
+		log("ASKING_MINIMAX_TO_PLAY_PLACING_PHASE");
+		int token = AI->putToken();
+		std::cout << "MINIMAX_RETURNED_" << std::to_string(token) << std::endl;
+		auto pos = board->NumberToPos(token);
+		placeToken(std::get<0>(pos), std::get<1>(pos));
+	}
+	else {
+		log("ASKING_MINIMAX_TO_PLAY_SECOND_PHASE");
+		int finalToken = AI->putToken();
+		auto pos = board->NumberToPos(finalToken);
+		auto choice = AI->removeToken(board->vertices);
+		int initialToken = std::get<1>(choice);
+		moveToken(initialToken, std::get<0>(pos), std::get<1>(pos));
+	}
 
+	//check if cpature is needed
+	checkForMill();
+	if (hasMill) {
+		auto choice = AI->capture(board->vertices);
+		int token = std::get<1>(choice);
+		auto pos = board->NumberToPos(token);
+		std::cout << "MINIMAX_CAPTURING_" << std::to_string(token) << std::endl;
+		capture(std::get<0>(pos), std::get<1>(pos));
+	}
+	turn = !turn;
 }
 
 void GameplayScene::askAlpaBetaToPlay()
@@ -357,17 +401,20 @@ void GameplayScene::askAlpaBetaToPlay()
 void GameplayScene::checkIfGameOver()
 {
 	if (!placingPhase) {
-		int tokensLeft;
+		int tokensLeft = 0;
 		for(int i = 0;i<24;i++){
-			if (board->vertices[i] != 0) tokensLeft++;
-			if (tokensLeft < 6) {
-				//stop the game
-				gameStarted = false;
-				log("GAME_OVER");
-			}
+			if (board->vertices[i] != 0) 
+				tokensLeft = tokensLeft+1;
+		}
+		if (tokensLeft < 6) {
+			//stop the game
+			gameStarted = false;
+			log("GAME_OVER");
 		}
 	}
 }
+
+
 #pragma endregion
 
 #pragma region Utily
@@ -387,8 +434,12 @@ bool GameplayScene::isFree(double x, double y)
 }
 
 //checks if a cell cant be captured
-bool GameplayScene::isUntouchable(int, int)
+bool GameplayScene::isUntouchable(int mill, int token)
 {
+	for (int i = 0; i < 16; i++) {
+		auto mill = board->possibleMillPositions[i];
+		if (isInMill(mill, token) && millCompleted(mill)) return true;
+	}
 	return false;
 }
 
@@ -399,12 +450,20 @@ bool GameplayScene::canSelect()
 	if (placingPhase && !hasMill) return false;
 	//case 2: already has a token selected
 	if (selectedToken != -1) return false;
-
+		
 	return true;
 }
 bool GameplayScene::millIsConsumed(std::array<int, 3> mill)
 {
 	return std::find(consumedMills.begin(), consumedMills.end(), mill) != consumedMills.end();
+}
+bool GameplayScene::isInMill(std::array<int, 3> mill, int token)
+{
+	return mill[0] == token || mill[1] == token || mill[2] == token;
+}
+bool GameplayScene::millCompleted(std::array<int, 3> mill)
+{
+	return board->vertices[mill[0]] != 0 && board->vertices[mill[0]] == board->vertices[mill[1]] && board->vertices[mill[0]] == board->vertices[mill[2]];
 }
 #pragma endregion
 

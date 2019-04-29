@@ -44,12 +44,10 @@ Board::Board(cocos2d::Scene *layer, double _rX, double _rY)
 	//on boucle sur les lignes(0-7)
 	for (int j = 0; j < 7; j++) {
 		squares[j * 7].setRect(Xo, Yo - 2 * (j + 1)*bd, 2 * bd, 2 * bd);	
-		//if (isGameSquare(j * 7)) drawToken(squares[j * 7],false);
 
 		//on boucles sur les colones liées à chaque ligne
 		for (int i = (j * 7) + 1; i < (j * 7) + 7; i++) {
 			squares[i].setRect(squares[i - 1].getMaxX(), squares[i - 1].getMinY(), 2 * bd, 2 * bd);
-			//if(isGameSquare(i)) drawToken(squares[i], false);
 		}
 	}
 
@@ -73,7 +71,7 @@ void Board::drawToken(Rect square,int squareNumber,bool side) {
 void Board::moveToken(int token, int x, int y)
 {
 	//creating the action(animation)
-	auto moveTo = MoveTo::create(2, Vec2(x,y));
+	auto moveTo = MoveTo::create(1, Vec2(x,y));
 	//applying it to the token's sprite
 	for (int i = 0; i < tokens.size(); i++) {
 		if (token == get<0>(tokens[i]))
@@ -101,7 +99,7 @@ Board::~Board()
 
 std::tuple<double, double> Board::NumberToPos(int token)
 {
-	return std::make_tuple(squares[token].getMidX(),squares[token].getMidY());
+	return std::make_tuple(squares[gameSquares[token]].getMidX(),squares[gameSquares[token]].getMidY());
 }
 
 //converts a pos to a game token number(0 to 23)

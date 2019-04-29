@@ -6,7 +6,7 @@
 #include "Board.h"
 #include "Enums.h"
 #include <vector>
-
+#include "ComputerPlayer.h"
 
 USING_NS_CC;
 using namespace std;
@@ -19,9 +19,10 @@ public:
 	static cocos2d::Scene* createScene();
 	virtual bool init();
 	void setGameType(GameTypes);
-	// implement the "static create()" method manually
-	CREATE_FUNC(GameplayScene);
 
+	void placingPhaseOver(std::array<int,24>);	
+	bool checkForMill(std::array<int, 24>,bool player);
+	CREATE_FUNC(GameplayScene);
 
 private:
 	//Local fields
@@ -34,7 +35,7 @@ private:
 	int placedTokens;
 	bool hasMill;
 	std::vector<std::array<int, 3>> consumedMills;//represents the mills that have already been used to capture a token
-
+	ComputerPlayer* AI;
 	// Touch event listeners
 	EventListenerTouchOneByOne * listener;
 	bool onTouchBegan(cocos2d::Touch *touch, cocos2d::Event *event);
@@ -83,7 +84,8 @@ private:
 	bool isUntouchable(int, int);//checks if a cell is part of a mill or if the current player cant capture(no ally mill)
 	bool canSelect();//checks if a player can select any cell
 	bool millIsConsumed(std::array<int,3> mill);
-
+	bool isInMill(std::array<int, 3> mill, int token);//checks if a token is in a mill
+	bool millCompleted(std::array<int, 3> mill);
 	friend class MenuScene;
 
 };

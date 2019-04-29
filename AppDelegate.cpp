@@ -61,10 +61,15 @@ bool AppDelegate::applicationDidFinishLaunching() {
     if(!glview)
     {
 #if (CC_TARGET_PLATFORM == CC_PLATFORM_WIN32) || (CC_TARGET_PLATFORM == CC_PLATFORM_MAC) || (CC_TARGET_PLATFORM == CC_PLATFORM_LINUX)
-        glview = GLViewImpl::createWithRect("Connect 4", cocos2d::Rect(0, 0, designResolutionSize.width, designResolutionSize.height));
+        glview = GLViewImpl::createWithRect("Jeu du Moulin", cocos2d::Rect(0, 0, designResolutionSize.width, designResolutionSize.height));
 #else
-        glview = GLViewImpl::create("LeagueChallenge");
+        glview = GLViewImpl::create("Jeu du Moulon");
 #endif
+		glview->setDesignResolutionSize(
+			designResolutionSize.width,
+			designResolutionSize.height,
+			ResolutionPolicy::NO_BORDER
+		);
         director->setOpenGLView(glview);
     }
 
@@ -96,9 +101,6 @@ bool AppDelegate::applicationDidFinishLaunching() {
     register_all_packages();
 
     // create a scene. it's an autorelease object
-//    auto scene = SplashScene::createScene();
-    //auto scene = GameplayScene::createScene();
-
 	auto scene = SplashScene::createScene();
 
     // run
@@ -109,7 +111,7 @@ bool AppDelegate::applicationDidFinishLaunching() {
 
 // This function will be called when the app is inactive. Note, when receiving a phone call it is invoked.
 void AppDelegate::applicationDidEnterBackground() {
-    Director::getInstance()->stopAnimation();
+    //Director::getInstance()->stopAnimation();
 
 #if USE_AUDIO_ENGINE
     AudioEngine::pauseAll();
